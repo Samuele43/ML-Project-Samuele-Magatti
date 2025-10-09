@@ -7,7 +7,11 @@ import os
 if not os.path.exists ("data"):
    raise FileNotFoundError("put the data in a folder called 'data/' as written in the README file")
 
+
+
 #Data exploration 
+
+
 ## From the readme I know that:
 # All images are RGB images of 300 pixels wide by 200 pixels high in .png format. 
 # the images are separated in three sub-folders named 'rock', 'paper' and 'scissors' according to their respective class.
@@ -145,7 +149,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-#check the size of each image for each class
+#check the size of each image 
 
 # create a dictionary list with name, width and height
 data = []
@@ -225,7 +229,7 @@ print(f"\n total images controlled: {total}")
 print(f" non RGB images: {non_rgb}")
 
 
-# mean for the rgb values
+# mean for the rgb values for each image 
 
 import numpy as np
 r_means, g_means, b_means = [], [], []
@@ -243,23 +247,36 @@ for cls in classes:
         g_means.append(img[...,1].mean())
         b_means.append(img[...,2].mean())
 
+
+
+#compute the mean and the standard deviatio for the whole dataset 
+
+r_mean = np.mean(r_means)
+g_mean = np.mean(g_means)
+b_mean = np.mean(b_means)
+
+
+r_std = np.std(r_means)
+g_std = np.std(g_means)
+b_std = np.std(b_means)
+
+print(f"Mean:  R={r_mean:.4f}, G={g_mean:.4f}, B={b_mean:.4f}")
+print(f"Std:   R={r_std:.4f}, G={g_std:.4f}, B={b_std:.4f}")
+
 #histogram
 
 plt.hist(r_means, bins=30, alpha=0.5, color='r', label='R')
 plt.hist(g_means, bins=30, alpha=0.5, color='g', label='G')
 plt.hist(b_means, bins=30, alpha=0.5, color='b', label='B')
+plt.axvline(r_mean, color='r', linestyle='--', linewidth=2, label=f'R mean = {r_mean:.2f}')
+plt.axvline(g_mean, color='g', linestyle='--', linewidth=2, label=f'G mean = {g_mean:.2f}')
+plt.axvline(b_mean, color='b', linestyle='--', linewidth=2, label=f'B mean = {b_mean:.2f}')
 plt.legend() 
 plt.title("distribution of average values of rgb")
 plt.xlabel("average value")
 plt.ylabel("frequency")
+plt.legend(loc='upper center', bbox_to_anchor=(1, 1))
 plt.show()
-
-#satndard deviation of rgb values
-
-print("standard deviation R:", np.std(r_means))
-print("standard deviation G:", np.std(g_means))
-print("standard deviation B:", np.std(b_means))
-
 
 # Preprocessing
 
@@ -267,23 +284,30 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
-
 ## image resizing, normalization and data augmentation
 
-# Resize tutte le immagini a 200x300, conversione in tensor, normalizzazione RGB
+
+## From the eda it's known that all images are 200x300, nevertheless here there is a resize check to avoid errors
+
+##trasformations for the train set:
+# Resize all the images to 200x300, tensor conversion, RGB normalizarion, data augmentation
+
 train_transform = transforms.Compose([
     transforms.Resize((200, 300)),
-    transforms.RandomHorizontalFlip(),     # augmentation: flip casuale
-    transforms.RandomRotation(20),         # augmentation: rotazioni casuali ±20°
+    transforms.RandomHorizontalFlip(),     
+    transforms.RandomRotation(20),         
     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5])
+    transforms.Normalize(mean=[r_mean,g_mean,b_mean], std=[r_std,g_std,b_std])
 ])
+
+# trasformation for the validation set:
+#resize, tensor conversion and normalization
 
 val_transform = transforms.Compose([
     transforms.Resize((200, 300)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5])
+    transforms.Normalize(mean=[r_mean,g_mean,b_mean], std=[r_std,g_std,b_std])
 ])
 
 
@@ -291,19 +315,9 @@ val_transform = transforms.Compose([
 
 
 
-from torchvision import transforms
-
-train_transform = transforms.Compose([
-    transforms.RandomResizedCrop(224),
-    transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485,0.456,0.406],
-                         std=[0.229,0.224,0.225])
-])
 
 
-## split data into train and test set (?)
+## split data into train and test set 
 
 #1
 
@@ -320,6 +334,7 @@ train_paths, test_paths = train_test_split(image_paths, test_size=0.2, stratify=
 
 
 
+# check data are divided correctly
 
 required_files = ["data/train.csv", "data/test.csv"]
 
