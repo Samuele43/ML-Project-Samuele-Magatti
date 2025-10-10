@@ -281,11 +281,31 @@ plt.show()
 # Preprocessing
 
 import torch
+import random
+import numpy as np
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
 ## image resizing, normalization and data augmentation
 
+# set seed
+
+SEED = 42
+torch.manual_seed(SEED)
+np.random.seed(SEED)
+random.seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+# set seet to guarantee reproducibility of data augmentation 
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(SEED)
 
 ## From the eda it's known that all images are 200x300, nevertheless here there is a resize check to avoid errors
 
@@ -296,7 +316,7 @@ train_transform = transforms.Compose([
     transforms.Resize((200, 300)),
     transforms.RandomHorizontalFlip(),     
     transforms.RandomRotation(20),         
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
     transforms.ToTensor(),
     transforms.Normalize(mean=[r_mean,g_mean,b_mean], std=[r_std,g_std,b_std])
 ])
@@ -312,35 +332,37 @@ val_transform = transforms.Compose([
 
 
 
-
-
-
-
-
 ## split data into train and test set 
+# the images of the data folder and of the data/rps-cv-images are the same 
+#so from now on we will work only on the latter subfolder
 
-#1
+full_dataset = datasets.ImageFolder(root="data/rps-cv-images")
 
-train_size = int(0.8 * len(dataset))
-val_size = len(dataset) - train_size
-train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+# Split 80/20
 
+train_size = int(0.8 * len(full_dataset))
+val_size = len(full_dataset) - train_size
 
-#2
+train_dataset, val_dataset = random_split(
+    full_dataset, [train_size, val_size],
+    generator=torch.Generator().manual_seed(SEED)
+)
 
-from sklearn.model_selection import train_test_split
+# apply the data augmentation and resizing defined before 
 
-train_paths, test_paths = train_test_split(image_paths, test_size=0.2, stratify=labels, random_state=42)
+train_dataset.dataset.transform = train_transform
+val_dataset.dataset.transform = val_transform
 
+# dataloader setup
 
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
+                          num_workers=4, worker_init_fn=seed_worker, generator=g)
 
-# check data are divided correctly
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False,
+                        num_workers=4, worker_init_fn=seed_worker, generator=g)
 
-required_files = ["data/train.csv", "data/test.csv"]
-
-for f in required_files:
-    if not os.path.exists(f):
-        raise FileNotFoundError(f"Missing {f}. Put the data in a folder called 'data/' as written in the README file")
+print(f"Train samples: {len(train_dataset)}")
+print(f"Validation samples: {len(val_dataset)}")
 
 
 
