@@ -26,6 +26,9 @@ def seed_worker(worker_id):
         np.random.seed(worker_seed)
         random.seed(worker_seed)
 
+g = torch.Generator()
+g.manual_seed(SEED)        
+
 
 # Check if you have installed data correctlyi
 
@@ -412,13 +415,13 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     # dataloader setup
 
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
-                              num_workers=4, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
-
+                              num_workers=4, worker_init_fn=seed_worker, generator=g)
+    
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False,
-                             num_workers=4, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
+                             num_workers=4, worker_init_fn=seed_worker, generator=g)
 
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False,
-                             num_workers=4, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
+                             num_workers=4, worker_init_fn=seed_worker, generator=g)
 
 
     print(f"Train samples: {len(train_dataset)}")
@@ -601,10 +604,49 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     test_accuracy = test_correct / test_total
     print(f"\n Test Accuracy: {test_accuracy:.4f}")
+
+
     
     # the test accuracy seem too high: train a label reshuffle
 
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = SimpleCNN(num_classes=3).to(device)
+
+    #optimization and loss (crossentropy loss and learning rate=0.001)
+
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # 2 epoch train
+
+    num_epochs = 2
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+        correct = 0
+        total = 0
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item() * inputs.size(0)
+            _, predicted = outputs.max(1)
+            total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
     
+        acc = 100.0 * correct / total
+        print(f"Epoch {epoch+1}/{num_epochs} - Loss: {running_loss/total:.4f} - Accuracy: {acc:.2f}%")
+
+    print("Test label shuffle completed.")
+
+    # the data seem to be around 33% so there is no data leakadge
+        
     #confusion matrix
 
     from sklearn.metrics import confusion_matrix, classification_report
