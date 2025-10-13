@@ -7,10 +7,9 @@ import os
 if not os.path.exists ("data"):
    raise FileNotFoundError("put the data in a folder called 'data/' as written in the README file")
 
-
-
-#Data exploration 
-
+#---------------------------
+#    DATA EXPLORATION 
+#---------------------------
 
 ## From the readme I know that:
 # All images are RGB images of 300 pixels wide by 200 pixels high in .png format. 
@@ -278,13 +277,17 @@ plt.ylabel("frequency")
 plt.legend(loc='upper center', bbox_to_anchor=(1, 1))
 plt.show()
 
-# Preprocessing
+
+#-----------------------------------
+#           PREPROCESSING
+#-----------------------------------
 
 import torch
 import random
 import numpy as np
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
+from PIL import Image
 
 ## image resizing, normalization and data augmentation
 
@@ -307,6 +310,57 @@ def seed_worker(worker_id):
 g = torch.Generator()
 g.manual_seed(SEED)
 
+## split data into train, validation and test set 
+# the images of the data folder and of the data/rps-cv-images are the same 
+#so from now on we will work only on the latter subfolder
+
+full_dataset = datasets.ImageFolder(root="data/rps-cv-images")
+
+# Split train test validation (70-15-15)
+
+total_size = len(full_dataset)
+train_size = int(0.7 * total_size)
+val_size = int(0.15 * total_size)
+test_size = total_size - train_size - val_size
+
+
+train_dataset, val_dataset, test_dataset = random_split(
+    full_dataset,
+    [train_size, val_size, test_size],
+    generator=torch.Generator().manual_seed(SEED)
+)
+
+#compute mean and std for the train part
+
+r_sum, g_sum, b_sum = 0.0, 0.0, 0.0
+r_sq_sum, g_sq_sum, b_sq_sum = 0.0, 0.0, 0.0
+num_pixels = 0
+
+for img, _ in train_dataset:
+    img = np.array(img) / 255.0  # converte in [0,1]
+    if img.ndim == 3 and img.shape[2] == 3:  # controlla che sia RGB
+        r = img[:, :, 0]
+        g = img[:, :, 1]
+        b = img[:, :, 2]
+        r_sum += r.mean()
+        g_sum += g.mean()
+        b_sum += b.mean()
+        r_sq_sum += (r ** 2).mean()
+        g_sq_sum += (g ** 2).mean()
+        b_sq_sum += (b ** 2).mean()
+        num_pixels += 1
+
+train_r_mean = r_sum / num_pixels
+train_g_mean = g_sum / num_pixels
+train_b_mean = b_sum / num_pixels
+
+train_r_std = (r_sq_sum / num_pixels - train_r_mean ** 2) ** 0.5
+train_g_std = (g_sq_sum / num_pixels - train_g_mean ** 2) ** 0.5
+train_b_std = (b_sq_sum / num_pixels - train_b_mean ** 2) ** 0.5
+
+print(f"Mean:  R={train_r_mean:.4f}, G={train_g_mean:.4f}, B={train_b_mean:.4f}")
+print(f"Std:   R={train_r_std:.4f}, G={train_g_std:.4f}, B={train_b_std:.4f}")
+
 ## From the eda it's known that all images are 200x300, nevertheless here there is a resize check to avoid errors
 
 ##trasformations for the train set:
@@ -318,65 +372,227 @@ train_transform = transforms.Compose([
     transforms.RandomRotation(20),         
     transforms.ColorJitter(brightness=0.2, contrast=0.2),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[r_mean,g_mean,b_mean], std=[r_std,g_std,b_std])
+    transforms.Normalize(mean=[0.3220,0.5481,0.2593], std=[0.2556,0.1014,0.1329])  # using the previously computed values
 ])
 
-# trasformation for the validation set:
+# trasformation for the validation and test set:
 #resize, tensor conversion and normalization
 
-val_transform = transforms.Compose([
+val_test_transform = transforms.Compose([
     transforms.Resize((200, 300)),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[r_mean,g_mean,b_mean], std=[r_std,g_std,b_std])
+    transforms.Normalize(mean=[0.3220,0.5481,0.2593], std=[0.2556,0.1014,0.1329])
 ])
 
-
-
-## split data into train and test set 
-# the images of the data folder and of the data/rps-cv-images are the same 
-#so from now on we will work only on the latter subfolder
-
-full_dataset = datasets.ImageFolder(root="data/rps-cv-images")
-
-# Split 80/20
-
-train_size = int(0.8 * len(full_dataset))
-val_size = len(full_dataset) - train_size
-
-train_dataset, val_dataset = random_split(
-    full_dataset, [train_size, val_size],
-    generator=torch.Generator().manual_seed(SEED)
-)
 
 # apply the data augmentation and resizing defined before 
 
 train_dataset.dataset.transform = train_transform
-val_dataset.dataset.transform = val_transform
+val_dataset.dataset.transform = val_test_transform
+test_dataset.dataset.transform = val_test_transform
+
 
 # dataloader setup
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
-                          num_workers=4, worker_init_fn=seed_worker, generator=g)
+                          num_workers=0, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
 
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False,
-                        num_workers=4, worker_init_fn=seed_worker, generator=g)
+                        num_workers=0, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
+
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False,
+                         num_workers=0, worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(SEED))
+
 
 print(f"Train samples: {len(train_dataset)}")
 print(f"Validation samples: {len(val_dataset)}")
-
-
-
-#build of first CNN
-
+print(f"Test samples: {len(test_dataset)}")
 
 
 
 
+#-----------------------------------------------
+#                  FIRST CNN
+#-----------------------------------------------
+
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import matplotlib.pyplot as plt
+
+#MODEL
+if __name__ == "__main__":
+    class SimpleCNN(nn.Module):
+        def __init__(self, num_classes=3):
+            super(SimpleCNN, self).__init__()
+        
+            # covolutionals layers + ReLU + MaxPooling
+            self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)  # input RGB -> 32 feature maps
+            self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+            self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        
+            self.pool = nn.MaxPool2d(2, 2)  # halves H e W
+        
+            # compute final feature map size for the fully connected layer
+            #  input images: 200x300 -> after 3 pool(2x2): 25x37 (approx)
+            self.fc1 = nn.Linear(128 * 25 * 37, 256)
+            self.fc2 = nn.Linear(256, num_classes)
+        
+            # Dropout for regularization (to avoid overfitting) 
+            self.dropout = nn.Dropout(0.5)
+        
+        def forward(self, x):
+            x = F.relu(self.conv1(x))
+            x = self.pool(x)
+        
+            x = F.relu(self.conv2(x))
+            x = self.pool(x)
+        
+            x = F.relu(self.conv3(x))
+            x = self.pool(x)
+        
+            # Flatten
+
+            x = x.view(x.size(0), -1)
+        
+            x = self.dropout(F.relu(self.fc1(x)))
+            x = self.fc2(x)  
+            return x
+
+    #  SETUP TRAINING
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = SimpleCNN(num_classes=3).to(device)
+    print(model)
+
+    #optimization and loss (crossentropy loss and learning rate=0.001)
+
+    import torch.optim as optim
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # lists for the graphs
+
+    train_losses,val_losses, val_accuracies, train_accuracies = [], [], [], []
+
+
+
+    # TRAINING LOOP ( 10 epochs)
+
+    num_epochs = 10
+
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+        correct = 0
+        total = 0
+
+
+    
+        # mini-batch training
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+    
+            optimizer.zero_grad()
+            outputs = model(inputs) 
+            loss = criterion(outputs, labels)  # compute the loss
+            loss.backward()   # backpropagation
+            optimizer.step()  # update weights
+        
+            #  compute average loss and accuracy of the batch
+            running_loss += loss.item() * inputs.size(0)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+        # compute averages for each epoch
+        epoch_loss = running_loss / total
+        epoch_acc = correct / total
+    
+        # VALIDATION
+
+        model.eval()
+        val_correct = 0
+        val_total = 0
+        val_loss = 0.0
+
+
+        with torch.no_grad():
+            for inputs, labels in val_loader:
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                val_loss += loss.item() * inputs.size(0)
+                _, predicted = torch.max(outputs, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+
+        val_loss /= val_total
+        val_acc = val_correct / val_total
+
+        # save the data for the plot
+        train_losses.append(epoch_loss)
+        train_accuracies.append(epoch_acc)
+        val_losses.append(val_loss)
+        val_accuracies.append(val_acc)
+    
+        print(f"Epoch {epoch+1}/{num_epochs} | "
+            f"Train Loss: {epoch_loss:.4f} | Train Acc: {epoch_acc:.4f} | "
+            f"Val loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}" )
+
+
+        
+    # GRAPH
+
+    epochs = range(1, num_epochs + 1)
+
+    plt.figure(figsize=(12,5))
+
+    plt.subplot(1,2,1)
+    plt.plot(epochs, train_losses, label='Training Loss')
+    plt.plot(epochs, val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Losses')
+    plt.legend()
+
+    plt.subplot(1,2,2)
+    plt.plot(epochs, train_accuracies, label='Train Accuracy')
+    plt.plot(epochs, val_accuracies, label='Validation Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Accuracy')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    # FINAL TEST
+
+    model.eval()
+    test_correct = 0
+    test_total = 0
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs, 1)
+            test_total += labels.size(0)
+            test_correct += (predicted == labels).sum().item()
+
+    test_accuracy = test_correct / test_total
+    print(f"\n Test Accuracy: {test_accuracy:.4f}")
 
 
 
 
-
+#-----------------------------------------------
+#                  SECOND CNN
+#-----------------------------------------------
 
 
 
