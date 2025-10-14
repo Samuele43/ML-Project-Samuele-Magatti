@@ -26,9 +26,8 @@ def seed_worker(worker_id):
         np.random.seed(worker_seed)
         random.seed(worker_seed)
 
-g = torch.Generator()
-g.manual_seed(SEED)        
-
+       
+g = torch.Generator().manual_seed(SEED)
 
 # Check if you have installed data correctlyi
 
@@ -323,11 +322,11 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     from torch.utils.data import DataLoader, random_split
     from torchvision import datasets, transforms
     from PIL import Image
+    import sys
 
     ## image resizing, normalization and data augmentation
 
-    g = torch.Generator()
-    g.manual_seed(SEED)
+    g = torch.Generator().manual_seed(SEED)
 
 
     ## split data into train, validation and test set 
@@ -347,7 +346,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     train_dataset, val_dataset, test_dataset = random_split(
         full_dataset,
         [train_size, val_size, test_size],
-        generator=torch.Generator().manual_seed(SEED)
+        generator=(g)
     )
 
     #compute mean and std for the train part
@@ -414,20 +413,21 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     # dataloader setup
 
+    num_workers = 0 if sys.platform == "darwin" else 4 # to avoid errors if you are using a mac device
+
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,
-                              num_workers=4, worker_init_fn=seed_worker, generator=g)
+                              num_workers=num_workers, worker_init_fn=seed_worker )
     
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False,
-                             num_workers=4, worker_init_fn=seed_worker, generator=g)
+                             num_workers=num_workers, worker_init_fn=seed_worker )
 
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False,
-                             num_workers=4, worker_init_fn=seed_worker, generator=g)
+                             num_workers=num_workers, worker_init_fn=seed_worker )
 
 
     print(f"Train samples: {len(train_dataset)}")
     print(f"Validation samples: {len(val_dataset)}")
     print(f"Test samples: {len(test_dataset)}")
-
 
 
 
@@ -606,8 +606,30 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     print(f"\n Test Accuracy: {test_accuracy:.4f}")
 
 
+    ## LABEL SHUFFLE TEST
+
+    import copy, random
+
+
     
-    # the test accuracy seem too high: train a label reshuffle
+    # the test accuracy seem too high: train a label shuffle
+
+    # train dataset copy
+
+    shuffled_train = copy.deepcopy(train_dataset)
+    targets = [y for _, y in shuffled_train]
+    random.shuffle(targets)
+
+    # substitute the labels
+
+    for i, idx in enumerate(shuffled_train.indices):
+        path, _ = shuffled_train.dataset.samples[idx]
+        shuffled_train.dataset.samples[idx] = (path, targets[i])
+
+    # new dataloader
+
+    shuffled_loader = DataLoader(shuffled_train, batch_size=32, shuffle=True,
+                             num_workers=num_workers, worker_init_fn=seed_worker)
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -627,7 +649,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
         running_loss = 0.0
         correct = 0
         total = 0
-        for inputs, labels in train_loader:
+        for inputs, labels in shuffled_loader:
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -651,7 +673,6 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     from sklearn.metrics import confusion_matrix, classification_report
     import numpy as np
-
     y_true, y_pred = [], []
     model.eval()
     with torch.no_grad():
