@@ -146,4 +146,15 @@ if __name__ == "__main__"
 
     print(confusion_matrix(y_true, y_pred))
     print(classification_report(y_true, y_pred, digits=4))
+
+    #confusion matrix
+
+    from utility import plot_confusion_matrix
+
+
+    class_names = full_dataset.classes  # recupera i nomi delle classi ('rock', 'paper', 'scissors')
+    plot_confusion_matrix(model, test_loader, device, class_names, title="Confusion Matrix - SimpleCNN")
+    plot_confusion_matrix(model_shuffle, test_loader, device, class_names, title="Confusion Matrix - Label Shuffle Test")
+
+
    

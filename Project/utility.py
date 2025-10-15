@@ -4,6 +4,7 @@ import torch
 import random
 import numpy as np
 
+## DEFINITIONS
 
 # set seed
 
@@ -22,7 +23,47 @@ def seed_worker(worker_id):
         random.seed(worker_seed)
 
 
-# Check if you have installed data correctlyi
+# definition of confusion matrix
+
+import torch
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+# definition to plot the confusion matrix and the heatmap
+
+def plot_confusion_matrix(model, dataloader, device, title="Confusion Matrix"):
+    y_true, y_pred = [], []
+    model.eval()
+    with torch.no_grad():
+        for x, y in dataloader:
+            x, y = x.to(device), y.to(device)
+            outputs = model(x)
+            y_pred.extend(outputs.argmax(1).cpu().numpy())
+            y_true.extend(y.cpu().numpy())
+
+
+
+    cm = confusion_matrix(y_true, y_pred)
+    print("\n" + title)
+    print(cm)
+    print(classification_report(y_true, y_pred, digits=4))
+
+    
+    # heatmap
+
+    plt.figure(figsize=(6,5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+        xticklabels=class_names, yticklabels=class_names
+        )
+    plt.title(title)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.show()
+
+
+# Check if you have installed data correctly
 
 import os
 
