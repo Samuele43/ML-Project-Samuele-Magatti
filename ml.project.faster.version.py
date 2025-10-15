@@ -1,6 +1,15 @@
-#--------------------------------
-#    MACHINE LEARNING PROJECT
-#--------------------------------
+#––––––––––––––––––––––––––––––––––––––
+#             FASTER VERSION
+#______________________________________
+
+
+
+# this is the same version of the code found in Samuele.Magatti.ML.Project 
+# but it was chosen to speed up the code in these ways:
+# reduce the number of epochs from 10 to 5 ( or from 3 to 2 in the hyperparameter tunung)
+# reduce the resize size ( from the previous 300x200 to 128x128)
+# this shold speed up the code but with a loss in accouracy of 1 or 2 %
+# the analisis and the graphs has been done using the previous version of the code 
 
 import torch
 import random
@@ -383,10 +392,10 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     ## From the eda it's known that all images are 200x300, nevertheless here there is a resize check to avoid errors
 
     ##trasformations for the train set:
-    # Resize all the images to 200x300, tensor conversion, RGB normalizarion, data augmentation
+    # Resize all the images to 128x128, tensor conversion, RGB normalizarion, data augmentation
 
     train_transform = transforms.Compose([
-        transforms.Resize((200, 300)),
+        transforms.Resize((128, 128)),
         transforms.RandomHorizontalFlip(),     
         transforms.RandomRotation(20),         
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
@@ -398,7 +407,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     #resize, tensor conversion and normalization
 
     val_test_transform = transforms.Compose([
-        transforms.Resize((200, 300)),
+        transforms.Resize((128, 128)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.3220,0.5481,0.2593], std=[0.2556,0.1014,0.1329]) # using the train set values
     ])
@@ -429,10 +438,12 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     print(f"Validation samples: {len(val_dataset)}")
     print(f"Test samples: {len(test_dataset)}")
 
+
  
     #-----------------------------------------------
     #                FIRST CNN 
     #-----------------------------------------------
+
 
     import torch
     import torch.nn as nn
@@ -480,7 +491,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     
     # TRAINING PARAMETERS
 
-    num_epochs = 10
+    num_epochs = 5
     lr = 1e-3
     batch_size = 32
     num_classes = 3
@@ -615,7 +626,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     print(confusion_matrix(y_true, y_pred))
     print(classification_report(y_true, y_pred, digits=4))
    
-    # MODEL EVALUATION
+# MODEL EVALUATION
 
     model.eval()
     y_true, y_pred = [], []
@@ -688,7 +699,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     # 2 epoch train
 
-    num_epochs = 2
+    num_epochs = 1
     for epoch in range(num_epochs):
         model_shuffle.train()
         running_loss = 0.0
@@ -751,11 +762,14 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     plt.ylabel("True")
     plt.show()
    
+    
+
+    
 
     
 
     #-----------------------------------------------
-    #                  SECOND CNN
+    #                  SECOOND CNN
     #-----------------------------------------------
 
 
@@ -827,7 +841,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     # TRAINING LOOP ( 10 epochs)
 
-    num_epochs = 10
+    num_epochs = 5
 
     for epoch in range(num_epochs):
         model.train()
@@ -1020,7 +1034,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     # 2 epoch train
 
-    num_epochs = 2
+    num_epochs = 1
     for epoch in range(num_epochs):
         model_shuffle.train()
         running_loss = 0.0
@@ -1046,7 +1060,7 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
 
     # the data seem to be around 33% so there is no data leakadge
         
-    # confusion matrix
+    #confusion matrix
 
     from sklearn.metrics import confusion_matrix, classification_report
     import numpy as np
@@ -1323,20 +1337,17 @@ if __name__ == "__main__": # avoid num_workers=4 to replicate each part of the c
     classes = ['rock','paper','scissors'] 
 
     #  hyperparameter tuning (short runs)
-
     best_cfg = hyperparameter_tuning(train_dataset, val_dataset, classes,
-                                     lrs=[1e-3, 3e-4, 1e-4], batch_sizes=[32, 64], tune_epochs=3)
+                                     lrs=[1e-3, 3e-4, 1e-4], batch_sizes=[32, 64], tune_epochs=2)
 
     #  full train with best config (longer)
-
     chosen_lr = best_cfg['lr'] if best_cfg else 1e-3
     chosen_bs = best_cfg['batch_size'] if best_cfg else 32
     model, history, (y_test, y_pred), test_loader = train_full(train_dataset, val_dataset, test_dataset, classes,
-                                                               lr=chosen_lr, batch_size=chosen_bs, num_epochs=10,
+                                                               lr=chosen_lr, batch_size=chosen_bs, num_epochs=5,
                                                                save_path='best_advanced_cnn.pth')
 
     # plots and metrics
-    
     plot_training(history)
     print("\nClassification report (test):")
     print(classification_report(y_test, y_pred, target_names=classes, digits=4))
