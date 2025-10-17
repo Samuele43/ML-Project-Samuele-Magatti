@@ -1,11 +1,11 @@
-# FIRST CNN 
+# SECOND CNN 
 from data import get_train_val_test_loaders
 train_loader, val_loader, test_loader = get_train_val_test_loaders()
 from model import SimpleCNN
 import torch
 
 #  SETUP TRAINING
-if __name__ == "__main__"
+if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SimpleCNN(num_classes=3).to(device)
     print(model)
