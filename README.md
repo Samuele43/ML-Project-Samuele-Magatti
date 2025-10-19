@@ -35,19 +35,19 @@ External validation was performed on a private dataset that used different backg
 
 ML-Project-Samuele-Magatti/
 
-├── data/
+└── data/
 
-├── Samuele.Magatti.ML.Project.py
+└── Samuele.Magatti.ML.Project.py
 
-├── report.pdf
+└── report.pdf
 
-├── requirements.txt
+└── requirements.txt
 
-├── ml.project.faster.version.py
+└── ml.project.faster.version.py
 
-├──.gitignore
+└── .gitignore
 
-├── Project
+└── Project
 
            └── data.py
 
@@ -72,6 +72,8 @@ ML-Project-Samuele-Magatti/
 In order to be able to run this project make sure you have installed Python 3.x
 
 Install also the following libraries:
+torch, PIL, glob, numpy,random, hashlib, pandasmatplotlib, seaborn, sys,
+sklearn.metrics, time, copy, pathlib, torchvision and tqdm
 
 
 
@@ -108,8 +110,13 @@ they has been tested using an homemade dataset
 
 ## Results
 
-All the analysis and the results are contained in the file report.pdf, for 
-further informations about the CNNs results refer to the uppersaid file.
+All the analysis and the results are contained in the file report.pdf, for further informations about the CNNs results refer to the uppersaid file. The table below resumes the results of the three model implemented in the code, it is important to point out that the running time is computed in the worst possible scenario, Mac working on a CPU only, so if you are going to use a  GPU or a Linux or Windows the running time will be considerably smaller. In case you want to replicate the experiment using the faster version consider that the accuracy may be 1 or 2 percentage point smaller.  
+
+|  Model | Accuracy | Running time |
+|--------|----------|--------------|
+| Simple | 96.35%   |     5        |
+| Tiny   | 96.66%   |    40        |
+|Advanced| 99.57%   |    180       |
 
 
 ##  Notes
