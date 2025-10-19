@@ -87,9 +87,9 @@ def get_train_val_test_loaders(data_dir="data/rps-cv-images", batch_size=32, see
     # Resize all the images to 200x300, tensor conversion, RGB normalizarion, data augmentation
 
     train_transform = transforms.Compose([
-        transforms.Resize((200, 300)),
+        transforms.Resize((150, 225)),
         transforms.RandomHorizontalFlip(),     
-        transforms.RandomRotation(20),         
+        transforms.RandomRotation(15),         
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.3220,0.5481,0.2593], std=[0.2556,0.1014,0.1329])  # using the previously computed values
@@ -99,7 +99,7 @@ def get_train_val_test_loaders(data_dir="data/rps-cv-images", batch_size=32, see
     #resize, tensor conversion and normalization
 
     val_test_transform = transforms.Compose([
-        transforms.Resize((200, 300)),
+        transforms.Resize((150, 225)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.3220,0.5481,0.2593], std=[0.2556,0.1014,0.1329]) # using the train set values
     ])
